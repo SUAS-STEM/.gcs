@@ -1,0 +1,100 @@
+name: Build and Release
+
+on:
+  repository_dispatch:
+    types: [build]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          repository: SUAS-STEM/gcs
+          token: ${{ secrets.GH_PAT }}
+          submodules: fa
+
+      - name: Checkout submodules
+        run: |
+          git config --global url."https://${{ secrets.GH_PAT }}@github.com/".insteadOf "https://github.com/"
+          git submodule update --init --recursive
+
+      - name: Upgrade aqt
+        run: pip install --upgrade aqtinstall
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.9.1'
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          modules: qtserialport qtmultimedia qtlocation qtpositioning qtshadertools qtquicktimeline
+          mirror: 'https://download.qt.io'
+          cache: true
+
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install aircraft dependencies
+        working-directory: aircraft
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: .\install.ps1
+
+      - name: Arrange MAVSDK layout for CMake
+        working-directory: aircraft
+        run: |
+          $mavsdk = "extern\mavsdk"
+          $dll = Get-ChildItem $mavsdk -Recurse -Filter "mavsdk.dll" | Select-Object -First 1
+          $lib = Get-ChildItem $mavsdk -Recurse -Filter "mavsdk.lib" | Select-Object -First 1
+          if (-not $dll) { Write-Error "mavsdk.dll not found under $mavsdk"; exit 1 }
+          if (-not $lib) { Write-Error "mavsdk.lib not found under $mavsdk"; exit 1 }
+          New-Item -ItemType Directory -Force "$mavsdk\Release\bin" | Out-Null
+          New-Item -ItemT
+
+      - name: Configure
+        run: |
+          cmake -B build -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Stage binaries for packaging
+        run: |
+          New-Item -ItemType Directory -Force compile
+
+          Copy-Item build\GcsApp.exe compile\ssgcs.exe
+
+          # MAVSDK runtim
+          $opencvBin = "aircraft\extern\opencv\build\x64\vc16\bin"
+          Copy-Item "$opencvBin\opencv_world*.dll"            compile\
+          Copy-Item "$opencvBin\opencv_videoio_ffmpeg*_64.dll" compile\ -ErrorAction SilentlyContinue
+
+      - name: Run windeployqt
+        run: |
+          windeployqt `
+            --release `
+            --compiler-runtime `
+            --qmldir GcsContent `
+            --qmldir Gcs `
+            --qmlimport build `
+            compile\ssgcs.exe
+
+      - name: Build installer
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" ssgcs.iss'
+
+      - name: Upload to dev release
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          Get-ChildItem dist\ -ErrorAction SilentlyContinue
+          gh release upload dev dist\ssgcs.exe `
+            --repo SUAS-STEM/.gcs `
+            --clobber
