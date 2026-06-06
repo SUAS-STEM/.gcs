@@ -1,4 +1,4 @@
-name: Build and Release
+name: MSVC Build win32_x86-64
 
 on:
   repository_dispatch:
@@ -15,7 +15,8 @@ jobs:
         with:
           repository: SUAS-STEM/gcs
           token: ${{ secrets.GH_PAT }}
-          submodules: fa
+          submodules: false
+          lfs: true
 
       - name: Checkout submodules
         run: |
@@ -56,7 +57,11 @@ jobs:
           if (-not $dll) { Write-Error "mavsdk.dll not found under $mavsdk"; exit 1 }
           if (-not $lib) { Write-Error "mavsdk.lib not found under $mavsdk"; exit 1 }
           New-Item -ItemType Directory -Force "$mavsdk\Release\bin" | Out-Null
-          New-Item -ItemT
+          New-Item -ItemType Directory -Force "$mavsdk\Release\lib" | Out-Null
+          $dstDll = Join-Path (Resolve-Path "$mavsdk\Release\bin") "mavsdk.dll"
+          $dstLib = Join-Path (Resolve-Path "$mavsdk\Release\lib") "mavsdk.lib"
+          if ($dll.FullName -ne $dstDll) { Copy-Item $dll.FullName $dstDll -Force }
+          if ($lib.FullName -ne $dstLib) { Copy-Item $lib.FullName $dstLib -Force }
 
       - name: Configure
         run: |
@@ -72,7 +77,10 @@ jobs:
 
           Copy-Item build\GcsApp.exe compile\ssgcs.exe
 
-          # MAVSDK runtim
+          # MAVSDK runtime
+          Copy-Item aircraft\extern\mavsdk\Release\bin\mavsdk.dll compile\
+
+          # OpenCV runtime (release only)
           $opencvBin = "aircraft\extern\opencv\build\x64\vc16\bin"
           Copy-Item "$opencvBin\opencv_world*.dll"            compile\
           Copy-Item "$opencvBin\opencv_videoio_ffmpeg*_64.dll" compile\ -ErrorAction SilentlyContinue
