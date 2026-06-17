@@ -98,11 +98,20 @@ jobs:
       - name: Build installer
         run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" ssgcs.iss'
 
-      - name: Upload to dev release
+      - name: Rename artifact
+        run: Copy-Item dist\ssgcs.exe dist\ssgcs-win32-amd64.exe
+
+      - name: Create versioned release
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          Get-ChildItem dist\ -ErrorAction SilentlyContinue
-          gh release upload dev dist\ssgcs.exe `
+          $tags = gh release list --repo SUAS-STEM/.gcs --limit 200 --json tagName |
+            ConvertFrom-Json |
+            Where-Object { $_.tagName -match '^dev-v0\.(\d+)$' } |
+            ForEach-Object { [int]($_.tagName -replace '^dev-v0\.', '') }
+          $next = if ($tags) { ($tags | Measure-Object -Maximum).Maximum + 1 } else { 1 }
+          $tag = "dev-v0.$($next.ToString('D3'))"
+          gh release create $tag dist\ssgcs-win32-amd64.exe `
             --repo SUAS-STEM/.gcs `
-            --clobber
+            --title $tag `
+            --latest
