@@ -31,12 +31,11 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.11'
+          version: '6.9.2'
           host: windows
           target: desktop
           arch: win64_msvc2022_64
           modules: qtserialport qtmultimedia qtlocation qtpositioning qtshadertools qtquicktimeline
-          mirror: 'https://download.qt.io'
           cache: true
 
       - name: Set up MSVC
@@ -139,7 +138,7 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.11'
+          version: '6.9.2'
           host: mac
           target: desktop
           arch: clang_64
