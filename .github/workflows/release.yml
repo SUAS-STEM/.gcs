@@ -155,7 +155,8 @@ jobs:
           cache: true
 
       - name: Install aircraft dependencies
-        run: bash aircraft/install-mac.sh
+        working-directory: aircraft
+        run: bash install-mac.sh
 
       - name: Configure
         run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
