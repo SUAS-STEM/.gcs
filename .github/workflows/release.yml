@@ -156,14 +156,21 @@ jobs:
         run: cmake --build build --parallel
 
       - name: Deploy Qt + create DMG
+        env:
+          DMG_PASSWORD: ${{ secrets.DMG_PASSWORD }}
         run: |
           mkdir -p dist
           macdeployqt build/GcsApp.app \
             -qmldir=GcsContent \
             -qmldir=Gcs \
-            -qmlimport=build \
-            -dmg
-          mv build/GcsApp.dmg dist/ssgcs-macos-arm64.dmg
+            -qmlimport=build
+          hdiutil create \
+            -srcfolder build/GcsApp.app \
+            -volname "SUAS@STEM Ground Control Software" \
+            -format UDZO \
+            -encryption AES-256 \
+            -stdinpass \
+            -o dist/ssgcs-macos-arm64 <<< "$DMG_PASSWORD"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
