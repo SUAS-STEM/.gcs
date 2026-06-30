@@ -1,4 +1,4 @@
-name: MSVC Build win32_x86-64
+name: Build
 
 on:
   repository_dispatch:
@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    outputs:
+      tag: ${{ steps.create_release.outputs.tag }}
 
     steps:
       - name: Checkout
@@ -108,6 +110,7 @@ jobs:
         run: Copy-Item dist\ssgcs.exe dist\ssgcs-win32-amd64.exe
 
       - name: Create versioned release
+        id: create_release
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
@@ -121,3 +124,58 @@ jobs:
             --repo SUAS-STEM/.gcs `
             --title $tag `
             --latest
+          "tag=$tag" | Out-File -Append -FilePath $env:GITHUB_OUTPUT
+
+  macos:
+    runs-on: macos-latest
+    needs: build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          repository: SUAS-STEM/gcs
+          token: ${{ secrets.GH_PAT }}
+          submodules: false
+          lfs: true
+
+      - name: Checkout submodules
+        run: |
+          git config --global url."https://${{ secrets.GH_PAT }}@github.com/".insteadOf "https://github.com/"
+          git submodule update --init --recursive
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.9.1'
+          host: mac
+          target: desktop
+          arch: clang_64
+          modules: qtserialport qtmultimedia qtlocation qtpositioning qtshadertools qtquicktimeline
+          cache: true
+
+      - name: Install aircraft dependencies
+        run: bash aircraft/install-mac.sh
+
+      - name: Configure
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Deploy Qt + create DMG
+        run: |
+          mkdir -p dist
+          macdeployqt build/GcsApp.app \
+            -qmldir=GcsContent \
+            -qmldir=Gcs \
+            -qmlimport=build \
+            -dmg
+          mv build/GcsApp.dmg dist/ssgcs-macos-arm64.dmg
+
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          gh release upload ${{ needs.build.outputs.tag }} dist/ssgcs-macos-arm64.dmg \
+            --repo SUAS-STEM/.gcs
