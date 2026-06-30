@@ -118,7 +118,7 @@ jobs:
             ConvertFrom-Json |
             Where-Object { $_.tagName -match '^dev-v0\.(\d+)$' } |
             ForEach-Object { [int]($_.tagName -replace '^dev-v0\.', '') }
-          $next = if ($tags) { ($tags | Measure-Object -Maximum).Maximum + 1 } else { 1 }
+          $next = if ($tags) { [int]($tags | Measure-Object -Maximum).Maximum + 1 } else { 1 }
           $tag = "dev-v0.$($next.ToString('D3'))"
           gh release create $tag dist\ssgcs-win32-amd64.exe `
             --repo SUAS-STEM/.gcs `
