@@ -165,6 +165,14 @@ jobs:
             -qmldir=GcsContent \
             -qmldir=Gcs \
             -qmlimport=build/qml
+          brew install dylibbundler
+          dylibbundler \
+            --fix-file build/GcsApp.app/Contents/MacOS/GcsApp \
+            --bundle-deps \
+            --dest-dir build/GcsApp.app/Contents/Frameworks \
+            --install-path @executable_path/../Frameworks \
+            --no-codesign
+
           echo "$DMG_PASSWORD" | hdiutil create \
             -srcfolder build/GcsApp.app \
             -volname "SUAS@STEM Ground Control Software" \
