@@ -164,13 +164,13 @@ jobs:
             -qmldir=GcsContent \
             -qmldir=Gcs \
             -qmlimport=build/qml
-          hdiutil create \
+          echo "$DMG_PASSWORD" | hdiutil create \
             -srcfolder build/GcsApp.app \
             -volname "SUAS@STEM Ground Control Software" \
             -format UDZO \
             -encryption AES-256 \
             -stdinpass \
-            -o dist/ssgcs-macos-arm64 <<< "$DMG_PASSWORD"
+            -o dist/ssgcs-macos-arm64
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
